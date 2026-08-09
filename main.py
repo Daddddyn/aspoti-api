@@ -18,11 +18,18 @@ async def get_stream(video_id: str):
         raise HTTPException(status_code=400, detail="Invalid video ID")
 
     ydl_opts = {
-        "format": "bestaudio[ext=m4a]/bestaudio/best",
+        "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
         "quiet": True,
         "no_warnings": True,
-        "extract_flat": False,
         "skip_download": True,
+        "noplaylist": True,
+        # Use the android client — much more reliable than web
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android"],
+                "skip": ["hls", "dash"],
+            }
+        },
     }
 
     try:
@@ -31,13 +38,22 @@ async def get_stream(video_id: str):
         url = info.get("url")
         if not url:
             raise HTTPException(status_code=502, detail="No stream URL found")
-        return {"url": url, "title": info.get("title"), "duration": info.get("duration")}
+        return {
+            "url": url,
+            "title": info.get("title"),
+            "duration": info.get("duration"),
+        }
     except yt_dlp.utils.DownloadError as e:
         raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 def _extract(video_id, opts):
     with yt_dlp.YoutubeDL(opts) as ydl:
-        return ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+        return ydl.extract_info(
+            f"https://www.youtube.com/watch?v={video_id}",
+            download=False
+        )
 
 @app.get("/health")
 def health():
