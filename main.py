@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import yt_dlp
 import asyncio
+import os
 
 app = FastAPI()
 
@@ -11,6 +12,8 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+
+COOKIES_FILE = os.path.join(os.path.dirname(__file__), "cookies.txt")
 
 @app.get("/stream/{video_id}")
 async def get_stream(video_id: str):
@@ -23,7 +26,6 @@ async def get_stream(video_id: str):
         "no_warnings": True,
         "skip_download": True,
         "noplaylist": True,
-        # Use the android client — much more reliable than web
         "extractor_args": {
             "youtube": {
                 "player_client": ["android"],
@@ -31,6 +33,10 @@ async def get_stream(video_id: str):
             }
         },
     }
+
+    # Use cookies if available
+    if os.path.exists(COOKIES_FILE):
+        ydl_opts["cookiefile"] = COOKIES_FILE
 
     try:
         loop = asyncio.get_event_loop()
