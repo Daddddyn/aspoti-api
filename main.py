@@ -20,7 +20,7 @@ async def get_stream(video_id: str):
         raise HTTPException(status_code=400, detail="Invalid video ID")
 
     ydl_opts = {
-        "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
+        "format": "bestaudio/best",
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
@@ -28,12 +28,10 @@ async def get_stream(video_id: str):
         "extractor_args": {
             "youtube": {
                 "player_client": ["android"],
-                "skip": ["hls", "dash"],
             }
         },
     }
 
-    # Write cookies from env var to a temp file
     cookies_content = os.environ.get("YT_COOKIES")
     tmp = None
     if cookies_content:
@@ -46,9 +44,11 @@ async def get_stream(video_id: str):
     try:
         loop = asyncio.get_event_loop()
         info = await loop.run_in_executor(None, lambda: _extract(video_id, ydl_opts))
+
         url = info.get("url")
         if not url:
             raise HTTPException(status_code=502, detail="No stream URL found")
+
         return {
             "url": url,
             "title": info.get("title"),
