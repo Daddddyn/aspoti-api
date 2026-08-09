@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import yt_dlp
 import asyncio
 import os
+import tempfile
 
 app = FastAPI()
 
@@ -12,8 +13,6 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
-
-COOKIES_FILE = os.path.join(os.path.dirname(__file__), "cookies.txt")
 
 @app.get("/stream/{video_id}")
 async def get_stream(video_id: str):
@@ -34,9 +33,15 @@ async def get_stream(video_id: str):
         },
     }
 
-    # Use cookies if available
-    if os.path.exists(COOKIES_FILE):
-        ydl_opts["cookiefile"] = COOKIES_FILE
+    # Write cookies from env var to a temp file
+    cookies_content = os.environ.get("YT_COOKIES")
+    tmp = None
+    if cookies_content:
+        tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False)
+        tmp.write(cookies_content)
+        tmp.flush()
+        tmp.close()
+        ydl_opts["cookiefile"] = tmp.name
 
     try:
         loop = asyncio.get_event_loop()
@@ -53,6 +58,9 @@ async def get_stream(video_id: str):
         raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if tmp:
+            os.unlink(tmp.name)
 
 def _extract(video_id, opts):
     with yt_dlp.YoutubeDL(opts) as ydl:
